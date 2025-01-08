@@ -18,4 +18,9 @@ class Spot extends Model
     protected $fillable = [
         'id', 'user_id', 'name', 'lat', 'lng', 'description', 'rate', 'image'
     ];
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class, 'spot_id');
+    }
 }

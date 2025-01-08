@@ -18,4 +18,9 @@ class Review extends Model
     protected $fillable = [
         'id', 'spot_id', 'user_id', 'rating', 'comment'
     ];
+
+    public function spot()
+    {
+        return $this->belongsTo(Spot::class, 'spot_id');
+    }
 }

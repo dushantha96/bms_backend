@@ -6,9 +6,10 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Tymon\JWTAuth\Facades\JWTAuth;
 use Illuminate\Support\Facades\Validator;
-use App\Models\User;
 use Illuminate\Support\Facades\Auth;
 use Carbon\Carbon;
+
+use App\Models\User;
 
 class AuthController extends Controller
 {
@@ -18,7 +19,8 @@ class AuthController extends Controller
                 'first_name' => ['required', 'string', 'max:255'],
                 'last_name' => ['required', 'string', 'max:255'],
                 'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-                'password' => ['required', 'string', 'min:8', 'confirmed']
+                'password' => ['required', 'string', 'min:8', 'confirmed'],
+                'role' => ['required', 'string'],
             ]);
             
 
@@ -33,7 +35,7 @@ class AuthController extends Controller
                 'last_name' => $request['last_name'],
                 'email' => $request['email'],
                 'password' => $request['password'],
-                'user_type' => 3
+                'user_type' => $request['role'] == 'driver' ? 3 : 2
             ]);            
                       
             return $this->login($request);
@@ -58,6 +60,7 @@ class AuthController extends Controller
             $user = Auth::user();
 
             $jwt_token = JWTAuth::customClaims([
+                'userId' => $user->id, 
                 'firstName' => $user->first_name, 
                 'userType' => $user->user_type, 
             ])->fromUser($user);
@@ -70,7 +73,7 @@ class AuthController extends Controller
         catch(\Exception $e){
             return response()->json([
                 'success' => false,
-                'error' => $e->getMessage(),
+                'error' => 'Internal Server Error',
             ], 500);
         }        
     }
@@ -120,5 +123,67 @@ class AuthController extends Controller
                 'message' => 'Internal Server Error'
             ], 500);
         }
+    }
+
+    public function getProfile(Request $request){
+        try{ 
+            $user = User::select('id', 'first_name', 'last_name', 'email')->findOrFail($request->user_id);
+
+            return response()->json([
+                'status' => true,
+                'data' => $user
+            ], 200);
+        }        
+        catch(\Exception $e){
+            return response()->json([
+                'success' => false,
+                'error' => 'Internal Server Error',
+            ], 500);
+        }        
+    }
+
+    public function updateProfile(Request $request){
+        try{           
+            $validator = Validator::make($request->all(), [
+                'user_id' => 'required|int',
+                'first_name' => 'required|string|max:255',
+                'last_name' => 'nullable|string|max:255',
+                'email' => 'required|string|email|max:255|unique:users,email,' . Auth::user()->id,
+                'current_password' => 'nullable|required_with:new_password',
+                'new_password' => 'nullable|min:8|max:12|required_with:current_password',
+                'password_confirmation' => 'nullable|min:8|max:12|required_with:new_password|same:new_password'
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'error' => $validator->errors()->first(),
+                ], 400);
+            }
+            
+            $user = User::findOrFail($request->user_id);
+            $user->first_name = $request->first_name;
+            $user->last_name = $request->last_name;
+            $user->email = $request->email;
+
+            if (!is_null($request->current_password)) {
+                if (Hash::check($request->current_password, $user->password)) {
+                    $user->password = $request->new_password;
+                } else {
+                    return redirect()->back()->withInput();
+                }
+            }
+
+            $user->save();
+
+            return response()->json([
+                'status' => true
+            ], 200);
+        }        
+        catch(\Exception $e){
+            return response()->json([
+                'success' => false,
+                'error' => 'Internal Server Error',
+            ], 500);
+        }        
     }
 }
