@@ -43,3 +43,5 @@ Route::post('signup', [AuthController::class,'signup']);
 
 Route::post('spot/search', [SpotsController::class,'search']);
 Route::get('spot/details', [SpotsController::class,'details']);
+
+Route::get('review/top', [ReviewsController::class,'top']);
